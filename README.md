@@ -10,5 +10,8 @@ Install the *shadcn/ui* files
 `npx shadcn@latest init`
 `npx shadcn@latest add [component]` (button, input, etc.)
 
+Intall a React package
+`npm install next-themes @radix-ui/react-dropdown-menu`
+
 ### To run:
 `npm start` or `npm run build` + `npm rum start`
