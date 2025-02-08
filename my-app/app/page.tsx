@@ -3,6 +3,8 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input" 
 import { useState } from "react"
+import { ThemeToggle } from "@/components/theme-toggle"
+import Link from "next/link"
 
 export default function Home() {
   const [display, setDisplay] = useState("")
@@ -16,69 +18,200 @@ export default function Home() {
 
   const [activeSection, setActiveSection] = useState<'calculator' | 'converter'>('calculator')
 
+  const [isResult, setIsResult] = useState(false)
+
+  const [lastOperation, setLastOperation] = useState<string>('')  // Store the last operation
+
   const handleNumber = (num: string) => {
-    setDisplay(prev => prev + num)
+    if (isResult) {
+      setDisplay(num)
+      setIsResult(false)
+    } else {
+      setDisplay(prev => prev + num)
+    }
   }
 
   const handleOperator = (op: string) => {
+    setIsResult(false)
+    setLastOperation('')  // Clear the last operation when starting a new one
     setDisplay(prev => prev + " " + op + " ")
+  }
+
+  const formatResult = (num: number | bigint): string => {
+    // Convert BigInt to number for comparison and formatting
+    const numValue = typeof num === 'bigint' ? Number(num) : num
+    
+    if (Math.abs(numValue) >= 1e20) {
+      return numValue.toExponential(5).replace(/\.?0+e/, 'e')
+    }
+    if (Number.isInteger(numValue)) {
+      return num.toString()
+    }
+    return numValue.toFixed(5).replace(/\.?0+$/, '')
   }
 
   const calculate = () => {
     try {
-      // Using Function constructor instead of eval for safer evaluation
-      const result = new Function('return ' + display)()
-      setDisplay(result.toString())
+      // If there's a result and user presses '=' again, repeat the last operation
+      if (isResult && lastOperation) {
+        const newDisplay = display + lastOperation
+        // Check if the expression contains left shift
+        if (newDisplay.includes('<<')) {
+          const [left, right] = newDisplay.split('<<').map(part => part.trim())
+          const result = BigInt(new Function('return ' + left)()) << BigInt(new Function('return ' + right)())
+          setDisplay(formatResult(result))
+        } else {
+          const result = new Function('return ' + newDisplay)()
+          setDisplay(formatResult(result))
+        }
+      } else {
+        // Store the second half of the operation for repeat functionality
+        const matches = display.match(/[-+*/&|^]|\s<<\s|\s>>\s/g)
+        if (matches) {
+          const lastMatch = matches[matches.length - 1]
+          const parts = display.split(lastMatch)
+          setLastOperation(lastMatch + parts[parts.length - 1])
+        }
+
+        // Regular calculation
+        if (display.includes('<<')) {
+          const [left, right] = display.split('<<').map(part => part.trim())
+          const result = BigInt(new Function('return ' + left)()) << BigInt(new Function('return ' + right)())
+          setDisplay(formatResult(result))
+        } else {
+          const result = new Function('return ' + display)()
+          setDisplay(formatResult(result))
+        }
+      }
+      setIsResult(true)
     } catch {
       setDisplay('Error')
+      setIsResult(true)
     }
   }
 
   const clear = () => {
     setDisplay("")
+    setIsResult(false)
+    setLastOperation('')  // Clear the last operation when clearing the display
+  }
+
+  const formatBinary = (binary: string, addPadding: boolean = false): string => {
+    // Remove any existing spaces
+    const cleanBinary = binary.replace(/\s/g, '')
+    if (addPadding) {
+      // Add padding only when converting from other formats
+      const paddedBinary = cleanBinary.padStart(Math.ceil(cleanBinary.length / 4) * 4, '0')
+      return paddedBinary.match(/.{1,4}/g)?.join(' ') || cleanBinary
+    }
+    // Just add spaces for direct binary input
+    return cleanBinary.match(/.{1,4}/g)?.join(' ') || cleanBinary
+  }
+
+  const formatHex = (hex: string, addPadding: boolean = false): string => {
+    // Remove spaces and convert to uppercase
+    const cleanHex = hex.replace(/\s/g, '').toUpperCase()
+    if (addPadding) {
+      // Add padding only when converting from other formats
+      const paddedHex = cleanHex.padStart(Math.ceil(cleanHex.length / 2) * 2, '0')
+      return paddedHex.match(/.{1,2}/g)?.join(' ') || cleanHex
+    }
+    // Just add spaces for direct hex input
+    return cleanHex.match(/.{1,2}/g)?.join(' ') || cleanHex
   }
 
   const handleConversion = (value: string, base: 'decimal' | 'binary' | 'hex') => {
-    let dec: number;
+    // Clear spaces first
+    const cleanValue = value.replace(/\s/g, '')
+    
+    // Check for valid characters based on the number system
+    const isValidDecimal = /^[0-9]*$/.test(cleanValue)
+    const isValidBinary = /^[01]*$/.test(cleanValue)
+    const isValidHex = /^[0-9A-Fa-f]*$/.test(cleanValue)
     
     try {
       switch (base) {
         case 'decimal':
-          dec = parseInt(value)
+          if (!isValidDecimal || cleanValue === '') {
+            setNumber({
+              decimal: value,  // Keep the invalid input in the current field
+              binary: 'NaN',
+              hex: 'NaN'
+            })
+            return
+          }
+          const dec = parseInt(cleanValue)
           setNumber({
             decimal: value,
-            binary: dec.toString(2),
-            hex: dec.toString(16).toUpperCase()
+            binary: formatBinary(dec.toString(2), true),
+            hex: formatHex(dec.toString(16), true)
           })
           break
+
         case 'binary':
-          dec = parseInt(value, 2)
+          if (!isValidBinary || cleanValue === '') {
+            setNumber({
+              decimal: 'NaN',
+              binary: value,  // Keep the invalid input in the current field
+              hex: 'NaN'
+            })
+            return
+          }
+          const binDec = parseInt(cleanValue, 2)
           setNumber({
-            decimal: dec.toString(),
-            binary: value,
-            hex: dec.toString(16).toUpperCase()
+            decimal: binDec.toString(),
+            binary: formatBinary(value),
+            hex: formatHex(binDec.toString(16), true)
           })
           break
+
         case 'hex':
-          dec = parseInt(value, 16)
+          if (!isValidHex || cleanValue === '') {
+            setNumber({
+              decimal: 'NaN',
+              hex: value,  // Keep the invalid input in the current field
+              binary: 'NaN'
+            })
+            return
+          }
+          const hexDec = parseInt(cleanValue, 16)
           setNumber({
-            decimal: dec.toString(),
-            binary: dec.toString(2),
-            hex: value.toUpperCase()
+            decimal: hexDec.toString(),
+            binary: formatBinary(hexDec.toString(2), true),
+            hex: formatHex(value)
           })
           break
       }
     } catch {
       setNumber({
-        decimal: 'Error',
-        binary: 'Error',
-        hex: 'Error'
+        decimal: base === 'decimal' ? value : 'NaN',
+        binary: base === 'binary' ? value : 'NaN',
+        hex: base === 'hex' ? value : 'NaN'
       })
     }
   }
 
+  const handleFocus = (field: 'decimal' | 'binary' | 'hex') => {
+    if (number[field] === 'NaN') {
+      setNumber(prev => ({
+        ...prev,
+        [field]: ''
+      }))
+    }
+  }
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-4 gap-8">
+    <main className="flex min-h-screen flex-col items-center p-24">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      <div className="absolute top-4 left-4">
+        <Link href="/about">
+          <Button variant="outline">
+            About Math Tools
+          </Button>
+        </Link>
+      </div>
       <h1 className="text-4xl font-bold mb-4">Math Tools</h1>
       
       <div className="flex gap-4 mb-4">
@@ -143,6 +276,7 @@ export default function Home() {
               <Input
                 value={number.decimal}
                 onChange={(e) => handleConversion(e.target.value, 'decimal')}
+                onFocus={() => handleFocus('decimal')}
                 placeholder="Enter decimal number"
                 className="mt-1"
               />
@@ -152,6 +286,7 @@ export default function Home() {
               <Input
                 value={number.binary}
                 onChange={(e) => handleConversion(e.target.value, 'binary')}
+                onFocus={() => handleFocus('binary')}
                 placeholder="Enter binary number"
                 className="mt-1"
               />
@@ -161,6 +296,7 @@ export default function Home() {
               <Input
                 value={number.hex}
                 onChange={(e) => handleConversion(e.target.value, 'hex')}
+                onFocus={() => handleFocus('hex')}
                 placeholder="Enter hex number"
                 className="mt-1"
               />
