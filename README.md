@@ -2,7 +2,7 @@
 
 Built with `Next.js` and `Shadcn/UI`.
 
-The website offeres a calculator supporting addition, subtraction, multiplication, and division. It also supports biswise operations and number system conversion (binary/decimal/hex).
+The website offers a calculator supporting addition, subtraction, multiplication, and division. It also supports biswise operations and number system conversion (binary/decimal/hex).
 
 ## Get Started
 #### Must:
