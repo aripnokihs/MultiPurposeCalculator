@@ -1,5 +1,7 @@
 # MultiPurposeCalculator - Older Version
 
+### Will not be updated.
+
 The website offeres a calculator supporting addition, subtraction, multiplication, and division. It also supports biswise operations and number system conversion.
 
 ## Get Started
