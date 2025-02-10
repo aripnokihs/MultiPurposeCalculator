@@ -22,9 +22,11 @@ The website offers a calculator supporting addition, subtraction, multiplication
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`npm install next-themes @radix-ui/react-dropdown-menu`
 
 #### To run:
-1. `npm start` OR `npm run build` + `npm run start`
+1. `cd` into `./my-app`.
 
-2. The page will be displayed at `http://localhost:3000`, navigate to this address in your browser.
+2. `npm start` OR `npm run build` + `npm run start`
+
+3. The page will be displayed at `http://localhost:3000`, navigate to this address in your browser.
 
 ## Potential Issues
 
